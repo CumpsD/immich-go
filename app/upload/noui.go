@@ -50,7 +50,11 @@ func (uc *UpCmd) runNoUI(ctx context.Context, app *app.Application) error {
 		}
 		lock.Unlock()
 
-		return fmt.Sprintf("\rImmich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d %s", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess], string(spinner[spinIdx]))
+		deleted := ""
+		if counts[fileevent.ProcessedLocalDeleted] > 0 {
+			deleted = fmt.Sprintf(", Deleted %d", counts[fileevent.ProcessedLocalDeleted])
+		}
+		return fmt.Sprintf("\rImmich read %d%%, Assets found: %d, Upload errors: %d, Uploaded %d%s %s", immichPct, app.FileProcessor().Logger().TotalAssets(), counts[fileevent.ErrorServerError], counts[fileevent.ProcessedUploadSuccess], deleted, string(spinner[spinIdx]))
 	}
 	uiGrp := errgroup.Group{}
 

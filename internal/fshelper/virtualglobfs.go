@@ -30,6 +30,7 @@ var (
 	_ fs.ReadDirFS = VirtualGlobFS{}
 	_ fs.StatFS    = VirtualGlobFS{}
 	_ NameFS       = VirtualGlobFS{}
+	_ FSCanRemove  = VirtualGlobFS{}
 )
 
 func NewVirtualGlobFS(pattern string) (fs.FS, error) {
@@ -195,6 +196,14 @@ func (gw VirtualGlobFS) Name() string {
 	return gw.rootFS.Name()
 }
 
+// Remove delegates file removal to the underlying rootFS.
+func (gw VirtualGlobFS) Remove(name string) error {
+	if r, ok := gw.rootFS.(FSCanRemove); ok {
+		return r.Remove(name)
+	}
+	return errors.New("remove not supported")
+}
+
 // FixedPathAndMagic split the path with the fixed part and the variable part
 func FixedPathAndMagic(name string) (string, string) {
 	if !HasMagic(name) {
@@ -224,19 +233,28 @@ type NameFS interface {
 type FSWithName struct {
 	fs.FS
 	name string
+	root string
 }
 
-var _ NameFS = FSWithName{}
+var (
+	_ NameFS      = FSWithName{}
+	_ FSCanRemove = FSWithName{}
+)
 
 // NewFSWithName creates a new rooted filesystem at the provided root. See os.DirFS for details.
 // It then extends that by naming the FS by the base directory that's being used.
 func NewFSWithName(root string) NameFS {
 	return &FSWithName{
 		name: filepath.Base(root),
+		root: root,
 		FS:   os.DirFS(root),
 	}
 }
 
 func (f FSWithName) Name() string {
 	return f.name
+}
+
+func (f FSWithName) Remove(name string) error {
+	return os.Remove(filepath.Join(f.root, name))
 }

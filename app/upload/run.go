@@ -363,6 +363,9 @@ func (uc *UpCmd) handleAsset(ctx context.Context, a *assets.Asset) error {
 		}
 
 		uc.processUploadedAsset(ctx, a, serverStatus)
+		if serverStatus != immich.StatusDuplicate {
+			uc.deleteLocalFile(ctx, a)
+		}
 		return nil
 
 	case SmallerOnServer: // Upload, manage albums and delete the server's asset
@@ -378,6 +381,9 @@ func (uc *UpCmd) handleAsset(ctx context.Context, a *assets.Asset) error {
 
 		uc.processUploadedAsset(ctx, a, serverStatus)
 		uc.app.FileProcessor().RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.ProcessedUploadUpgraded)
+		if serverStatus != immich.StatusDuplicate {
+			uc.deleteLocalFile(ctx, a)
+		}
 
 		return nil
 
@@ -386,6 +392,7 @@ func (uc *UpCmd) handleAsset(ctx context.Context, a *assets.Asset) error {
 		uc.app.FileProcessor().RecordNonAsset(ctx, a.File, int64(a.FileSize), fileevent.DiscardedLocalDuplicate)
 		uc.app.FileProcessor().RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.ProcessedMetadataUpdated)
 		uc.manageAssetAlbums(ctx, a.File, a.ID, a.Albums)
+		uc.deleteLocalFile(ctx, a)
 		return nil
 
 	case SameOnServer:
@@ -395,12 +402,14 @@ func (uc *UpCmd) handleAsset(ctx context.Context, a *assets.Asset) error {
 		uc.app.FileProcessor().RecordNonAsset(ctx, a.File, int64(a.FileSize), fileevent.DiscardedServerDuplicate)
 		uc.app.FileProcessor().RecordAssetProcessed(ctx, a.File, int64(a.FileSize), fileevent.ProcessedMetadataUpdated)
 		uc.manageAssetAlbums(ctx, a.File, a.ID, a.Albums)
+		uc.deleteLocalFile(ctx, a)
 
 	case BetterOnServer: // and manage albums
 		a.ID = advice.ServerAsset.ID
 		// Record as discarded - server has better version
 		uc.app.FileProcessor().RecordAssetDiscarded(ctx, a.File, int64(a.FileSize), fileevent.ProcessedMetadataUpdated, advice.Message)
 		uc.manageAssetAlbums(ctx, a.File, a.ID, a.Albums)
+		uc.deleteLocalFile(ctx, a)
 
 	case ForceUpload:
 		var serverStatus string
@@ -420,6 +429,9 @@ func (uc *UpCmd) handleAsset(ctx context.Context, a *assets.Asset) error {
 		}
 
 		uc.processUploadedAsset(ctx, a, serverStatus)
+		if serverStatus != immich.StatusDuplicate {
+			uc.deleteLocalFile(ctx, a)
+		}
 		return nil
 	}
 
@@ -567,6 +579,24 @@ func (uc *UpCmd) manageAssetTags(ctx context.Context, a *assets.Asset) {
 func (uc *UpCmd) DeleteServerAssets(ctx context.Context, ids []string) error {
 	uc.app.Log().Message("%d server assets to delete.", len(ids))
 	return uc.client.Immich.DeleteAssets(ctx, ids, false)
+}
+
+// deleteLocalFile removes the local file from disk after a successful upload.
+// It respects dry-run mode and only works when the underlying FS supports removal.
+func (uc *UpCmd) deleteLocalFile(ctx context.Context, a *assets.Asset) {
+	if !uc.DeleteUploaded {
+		return
+	}
+	if uc.app.DryRun {
+		uc.app.Log().Info("dry-run: would delete local file", "file", a.File)
+		return
+	}
+	err := fshelper.Remove(a.File.FS(), a.File.Name())
+	if err != nil {
+		uc.app.Log().Error("failed to delete local file after upload", "file", a.File, "err", err)
+		return
+	}
+	uc.app.FileProcessor().Logger().Record(ctx, fileevent.ProcessedLocalDeleted, a.File)
 }
 
 func (uc *UpCmd) processUploadedAsset(ctx context.Context, a *assets.Asset, serverStatus string) {

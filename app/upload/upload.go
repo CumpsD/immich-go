@@ -55,10 +55,11 @@ type UpCmd struct {
 	// Cli flags
 
 	shared.StackOptions
-	client     app.Client
-	NoUI       bool // Disable UI
-	Overwrite  bool // Always overwrite files on the server with local versions
-	Tags       []string
+	client         app.Client
+	NoUI           bool // Disable UI
+	Overwrite      bool // Always overwrite files on the server with local versions
+	DeleteUploaded bool // Delete local file after successful upload
+	Tags           []string
 	SessionTag bool
 	session    string // Session tag value
 
@@ -83,6 +84,7 @@ func (uc *UpCmd) RegisterFlags(flags *pflag.FlagSet) {
 	uc.client.RegisterFlags(flags, "")
 	flags.BoolVar(&uc.NoUI, "no-ui", false, "Disable the user interface")
 	flags.BoolVar(&uc.Overwrite, "overwrite", false, "Always overwrite files on the server with local versions")
+	flags.BoolVar(&uc.DeleteUploaded, "delete-uploaded", false, "Delete local file after successful upload to the server")
 	flags.StringSliceVar(&uc.Tags, "tag", nil, "Add tags to the imported assets. Can be specified multiple times. Hierarchy is supported using a / separator (e.g. 'tag1/subtag1')")
 	flags.BoolVar(&uc.SessionTag, "session-tag", false, "Tag uploaded photos with a tag \"{immich-go}/YYYY-MM-DD HH-MM-SS\"")
 

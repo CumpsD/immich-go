@@ -48,6 +48,7 @@ const (
 	ProcessedUploadUpgraded  // Server asset upgraded with input
 	ProcessedMetadataUpdated // Asset metadata updated on server
 	ProcessedFileArchived    // Asset successfully archived to disk
+	ProcessedLocalDeleted   // Local file deleted after successful upload
 
 	// ===== Asset Lifecycle Events - To DISCARDED =====
 	DiscardedServerDuplicate // Server already has this asset
@@ -95,6 +96,7 @@ var _code = map[Code]string{
 	ProcessedUploadUpgraded:  "server asset upgraded",
 	ProcessedMetadataUpdated: "metadata updated",
 	ProcessedFileArchived:    "file archived",
+	ProcessedLocalDeleted:   "local file deleted",
 
 	// To DISCARDED
 	DiscardedServerDuplicate: "server has duplicate",
@@ -139,6 +141,7 @@ var _logLevels = map[Code]slog.Level{
 	ProcessedUploadUpgraded:  slog.LevelInfo,
 	ProcessedMetadataUpdated: slog.LevelInfo,
 	ProcessedFileArchived:    slog.LevelInfo,
+	ProcessedLocalDeleted:   slog.LevelInfo,
 
 	// To DISCARDED
 	DiscardedServerDuplicate: slog.LevelInfo,
@@ -300,7 +303,7 @@ func (r *Recorder) GenerateEventReport() string {
 
 	// Asset Lifecycle - To PROCESSED
 	hasProcessed := false
-	for _, c := range []Code{ProcessedUploadSuccess, ProcessedUploadUpgraded, ProcessedMetadataUpdated, ProcessedFileArchived} {
+	for _, c := range []Code{ProcessedUploadSuccess, ProcessedUploadUpgraded, ProcessedMetadataUpdated, ProcessedFileArchived, ProcessedLocalDeleted} {
 		if eventCounts[c] > 0 {
 			hasProcessed = true
 			break
@@ -308,7 +311,7 @@ func (r *Recorder) GenerateEventReport() string {
 	}
 	if hasProcessed {
 		sb.WriteString("\nAsset Lifecycle (PROCESSED):\n")
-		for _, c := range []Code{ProcessedUploadSuccess, ProcessedUploadUpgraded, ProcessedMetadataUpdated, ProcessedFileArchived} {
+		for _, c := range []Code{ProcessedUploadSuccess, ProcessedUploadUpgraded, ProcessedMetadataUpdated, ProcessedFileArchived, ProcessedLocalDeleted} {
 			if count := eventCounts[c]; count > 0 {
 				if size := eventSizes[c]; size > 0 {
 					sb.WriteString(fmt.Sprintf("  %-35s: %7d  (%s)\n", c.String(), count, formatEventBytes(size)))
